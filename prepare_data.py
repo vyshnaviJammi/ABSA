@@ -1,7 +1,9 @@
-"""DSCI-12: clean the Amazon reviews CSV and build a baseline ABSA output.
-Usage: python prepare_data.py amazon_reviews_cleaned.csv
-Outputs: absa_ready.csv, aspect_mentions.csv, to_label_sample.csv, site_data.json
-Baseline only: lexicon aspects + weak-label sentiment (stars -> clause classifier)."""
+"""DSCI-12 step 1: clean the Amazon reviews and run the BASELINE ABSA model.
+Usage: python prepare_data.py data/amazon_reviews_cleaned.csv
+Outputs (next to the input file): absa_ready.csv, aspect_mentions.csv, to_label_sample.csv
+Baseline only: keyword aspects + weak-label sentiment (stars -> clause classifier).
+To use a better model, replace section 2-3 (or write your own script) so that it produces
+aspect_mentions.csv with the same columns, then run build_site.py (see docs/ADVANCING_THE_MODEL.md)."""
 import re, sys, json, numpy as np, pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
@@ -83,47 +85,8 @@ ev = m[m.rating != 3]; yt = np.where(ev.rating >= 4, "positive", "negative"); yp
 print("mentions:", len(m), "| distribution:", m.sent.value_counts(normalize=True).round(2).to_dict())
 print("proxy check vs stars (out-of-fold, binary, neutral->pos): acc=%.3f macroF1=%.3f" %
       (accuracy_score(yt, yp), f1_score(yt, yp, average="macro")))
-m.sample(300, random_state=3)[["review_id", "aspect", "clause"]].assign(true_sentiment="") \
-    .to_csv(f"{OUT}/to_label_sample.csv", index=False)
-
-# ---------- 4. site json ----------
-top = df.segment.value_counts().head(5)
-segs = list(top.index)
-def split(g):
-    n = len(g); return dict(n=n, **{k: round(100 * (g.sent == k).mean()) for k in ["positive", "neutral", "negative"]}) if n else dict(n=0)
-rng = np.random.RandomState(5); data = dict(
-    n_reviews=len(df), n_with_device=int(df.segment.notna().sum()), date_min=str(df.date.min().date()), date_max=str(df.date.max().date()),
-    segments=[dict(name=s, n=int(c)) for s, c in top.items()], aspects={})
-qs = sorted(df.quarter.unique())
-for a, g in m.groupby("aspect"):
-    n = len(g); d = dict(n=n, pos=round(100 * (g.sent == "positive").mean()), neg=round(100 * (g.sent == "negative").mean()))
-    d["neu"] = 100 - d["pos"] - d["neg"]
-    d["seg"] = {s: split(g[g.segment == s]) for s in segs}
-    d["trend"] = [(round(100 * (gq.sent == "positive").mean()) if len(gq) >= 8 else None) for q in qs for gq in [g[g.quarter == q]]]
-    smp = []
-    for s, k in [("positive", 2), ("negative", 2), ("neutral", 1)]:
-        c = g[(g.sent == s) & g.clause.str.len().between(35, 220)]
-        for r in c.iloc[rng.permutation(len(c))[:k]].itertuples(): smp.append(dict(s=s, seg=r.segment or "", t=r.clause, kw=r.keyword))
-    d["samples"] = smp; data["aspects"][a] = d
-PROD = {"Motorola phone": (["motorola", "moto", "razr"], r"motorola|moto x|moto g|razr|droid x|droid bionic|droid 4|atrix|xoom"),
-        "Samsung Galaxy phone": (["samsung", "galaxy"], r"samsung|galaxy"),
-        "HTC phone": (["htc"], r"\bhtc\b"), "LG phone": (["lg"], r"\blg\b"), "Nokia phone": (["nokia"], r"nokia"),
-        "GoPro camera": (["gopro", "go pro"], r"gopro|go pro"), "Canon camera": (["canon"], r"canon"),
-        "Sony camera": (["sony"], r"\bsony\b"), "Nook tablet": (["nook"], r"nook")}
-low = df.review_text.str.lower(); data["products"] = {}
-for name, (alias, pat) in PROD.items():   # product = reviews that name it (file has no product id)
-    ids = set(df.review_id[low.str.contains(pat)])
-    if len(ids) < 25: continue
-    g = m[m.review_id.isin(ids)]
-    d = dict(alias=alias, n_reviews=len(ids), n_mentions=len(g), avg_rating=round(float(df.rating[df.review_id.isin(ids)].mean()), 2),
-             pos=round(100 * (g.sent == "positive").mean()), neg=round(100 * (g.sent == "negative").mean()), aspects={}, samples=[])
-    d["neu"] = 100 - d["pos"] - d["neg"]
-    for a, ga in g.groupby("aspect"):
-        if len(ga) >= 5: d["aspects"][a] = dict(n=len(ga), **{k: round(100 * (ga.sent == s).mean()) for k, s in [("pos", "positive"), ("neu", "neutral"), ("neg", "negative")]})
-    for s, k in [("positive", 2), ("negative", 2), ("neutral", 1)]:
-        c = g[(g.sent == s) & g.clause.str.len().between(35, 220)]
-        for r in c.iloc[rng.permutation(len(c))[:k]].itertuples(): d["samples"].append(dict(s=s, a=r.aspect, t=r.clause, kw=r.keyword))
-    data["products"][name] = d
-data["quarters"] = qs
-json.dump(data, open(f"{OUT}/site_data.json", "w"), separators=(",", ":"))
-print("segments:", top.to_dict(), "| aspects:", {a: v["n"] for a, v in data["aspects"].items()})
+if os.path.exists(f"{OUT}/to_label_sample.csv"):
+    print("to_label_sample.csv already exists, left untouched (your labels are safe)")
+else:
+    m.sample(300, random_state=3)[["review_id", "aspect", "clause"]].assign(true_sentiment="") \
+        .to_csv(f"{OUT}/to_label_sample.csv", index=False)
