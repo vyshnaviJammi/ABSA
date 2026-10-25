@@ -44,3 +44,28 @@ python evaluate.py          # after filling data/to_label_sample.csv
 
 ## Status
 CP1 baseline. Next: hand-label the sample, evaluate, then replace the baseline with a stronger model (see docs/ADVANCING_THE_MODEL.md).
+
+## Product	Reviews	That can be used for testing
+Samsung Galaxy phone	1,175	samsung, galaxy
+Samsung Galaxy Note	386	galaxy note, note
+GoPro camera	356	gopro, go pro, hero
+Samsung Galaxy S3	340	galaxy s3, s3, siii
+Samsung Galaxy S4	260	galaxy s4, s4
+Samsung Galaxy Tab	154	galaxy tab, tab
+Microsoft Surface	103	surface
+Asus tablet	89	asus, transformer
+Motorola phone	79	motorola, moto, razr
+HTC phone	54	htc
+Sony camera	53	sony
+Dash cam	50	dash cam, dashcam
+Canon camera	48	canon
+DSLR camera	37	dslr
+Nokia Lumia phone	36	nokia, lumia
+Dell device	35	dell, venue
+Nook tablet	29	nook
+LG phone	28	lg
+Apple MacBook	22	macbook, mac
+Nikon camera	21	nikon
+Apple iPhone	20	iphone
+Garmin GPS	20	garmin, gps
+BlackBerry phone	17	blackberry
