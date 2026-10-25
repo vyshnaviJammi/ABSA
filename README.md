@@ -24,5 +24,5 @@ Open `index.html` in a browser (internet needed to load Chart.js), or visit the 
 ## Method (baseline)
 - Aspects: keyword lists for speed, storage, price, reliability, compatibility, video and photo, delivery, authenticity
 - Sentiment: logistic regression trained on star ratings, applied to the clause containing the aspect (5-fold out-of-fold predictions)
-- Note: the dataset has no product ID, so reviews are grouped by the first device mentioned
+- Note: the dataset has no product ID, so reviews are grouped by the first device mentioned, and the product search (e.g. "Motorola phone") matches reviews that name the product in their text
 - Status: baseline only; to be replaced by the final ABSA model and validated on hand-labelled data

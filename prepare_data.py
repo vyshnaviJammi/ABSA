@@ -105,6 +105,25 @@ for a, g in m.groupby("aspect"):
         c = g[(g.sent == s) & g.clause.str.len().between(35, 220)]
         for r in c.iloc[rng.permutation(len(c))[:k]].itertuples(): smp.append(dict(s=s, seg=r.segment or "", t=r.clause, kw=r.keyword))
     d["samples"] = smp; data["aspects"][a] = d
+PROD = {"Motorola phone": (["motorola", "moto", "razr"], r"motorola|moto x|moto g|razr|droid x|droid bionic|droid 4|atrix|xoom"),
+        "Samsung Galaxy phone": (["samsung", "galaxy"], r"samsung|galaxy"),
+        "HTC phone": (["htc"], r"\bhtc\b"), "LG phone": (["lg"], r"\blg\b"), "Nokia phone": (["nokia"], r"nokia"),
+        "GoPro camera": (["gopro", "go pro"], r"gopro|go pro"), "Canon camera": (["canon"], r"canon"),
+        "Sony camera": (["sony"], r"\bsony\b"), "Nook tablet": (["nook"], r"nook")}
+low = df.review_text.str.lower(); data["products"] = {}
+for name, (alias, pat) in PROD.items():   # product = reviews that name it (file has no product id)
+    ids = set(df.review_id[low.str.contains(pat)])
+    if len(ids) < 25: continue
+    g = m[m.review_id.isin(ids)]
+    d = dict(alias=alias, n_reviews=len(ids), n_mentions=len(g), avg_rating=round(float(df.rating[df.review_id.isin(ids)].mean()), 2),
+             pos=round(100 * (g.sent == "positive").mean()), neg=round(100 * (g.sent == "negative").mean()), aspects={}, samples=[])
+    d["neu"] = 100 - d["pos"] - d["neg"]
+    for a, ga in g.groupby("aspect"):
+        if len(ga) >= 5: d["aspects"][a] = dict(n=len(ga), **{k: round(100 * (ga.sent == s).mean()) for k, s in [("pos", "positive"), ("neu", "neutral"), ("neg", "negative")]})
+    for s, k in [("positive", 2), ("negative", 2), ("neutral", 1)]:
+        c = g[(g.sent == s) & g.clause.str.len().between(35, 220)]
+        for r in c.iloc[rng.permutation(len(c))[:k]].itertuples(): d["samples"].append(dict(s=s, a=r.aspect, t=r.clause, kw=r.keyword))
+    data["products"][name] = d
 data["quarters"] = qs
 json.dump(data, open(f"{OUT}/site_data.json", "w"), separators=(",", ":"))
 print("segments:", top.to_dict(), "| aspects:", {a: v["n"] for a, v in data["aspects"].items()})
