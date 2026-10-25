@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Aspect-Based Sentiment and Voice-of-Customer Analytics</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{--bg:#f4f6f8;--card:#fff;--fg:#14212b;--mut:#5b6b78;--line:#dde3e8;--acc:#0b7a75;--pos:#2e9e6b;--neu:#9aa5b1;--neg:#d4504c;--mk:#fff3c4;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1820;--card:#17232d;--fg:#e6edf2;--mut:#93a3b0;--line:#27363f;--acc:#3cc5bd;--mk:#5a4b12;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0f1820;--card:#17232d;--fg:#e6edf2;--mut:#93a3b0;--line:#27363f;--acc:#3cc5bd;--mk:#5a4b12;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.55 "Segoe UI",system-ui,-apple-system,Roboto,sans-serif}
+main{max-width:1040px;margin:0 auto;padding:28px 18px 48px}
+h1{font-size:clamp(1.5rem,4vw,2.2rem);line-height:1.2;margin:0 0 6px;letter-spacing:-.01em}
+h2{font-size:1.05rem;margin:0 0 4px}
+.sub{color:var(--mut);margin:0 0 22px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:18px;margin-bottom:16px}
+.cap{color:var(--mut);font-size:.88rem;margin:6px 0 0}
+.grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+.ch{position:relative;height:280px}
+.search{display:flex;gap:8px;flex-wrap:wrap}
+input{flex:1;min-width:200px;padding:11px 12px;font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:8px}
+button{font:inherit;cursor:pointer;border-radius:8px;border:1px solid var(--acc);background:var(--acc);color:#fff;padding:10px 16px}
+button.ghost{background:transparent;color:var(--acc)}
+:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.chips button{padding:5px 12px;font-size:.9rem}
+.msg{color:var(--neg);margin:10px 0 0;min-height:1.2em}
+.kpis{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-bottom:16px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px}
+.kpi b{display:block;font-size:1.6rem;line-height:1.2}
+.kpi span{color:var(--mut);font-size:.88rem}
+.rev{border-top:1px solid var(--line);padding:10px 0}
+.rev:first-of-type{border-top:0}
+.rev small{color:var(--mut)}
+mark{background:var(--mk);color:inherit;padding:0 2px;border-radius:3px}
+.tag{font-size:.78rem;padding:1px 8px;border-radius:10px;color:#fff;margin-right:6px}
+.hide{display:none}
+</style>
+</head>
+<body>
+<main>
+<h1>Aspect-Based Sentiment and Voice-of-Customer Analytics</h1>
+<p class="sub">DSCI-12 capstone prototype on 4,897 Amazon reviews of SanDisk memory cards (Jan 2012 to Dec 2014). Sentiment comes from a baseline model, not the final pipeline.</p>
+
+<section id="home">
+  <div class="card">
+    <h2>Top 5 devices the card is used with</h2>
+    <div class="ch"><canvas id="pie"></canvas></div>
+    <p class="cap" id="pcap"></p>
+  </div>
+  <div class="card">
+    <h2>Search an aspect</h2>
+    <div class="search">
+      <input id="q" list="al" placeholder="Try speed, price or reliability" aria-label="Search an aspect" autocomplete="off">
+      <button id="go">Show dashboard</button>
+    </div>
+    <datalist id="al"></datalist>
+    <p class="msg" id="msg" role="status"></p>
+    <div class="chips" id="chips"></div>
+  </div>
+</section>
+
+<section id="asp" class="hide">
+  <p><button class="ghost" id="back">Back to home</button></p>
+  <h1 id="at" style="font-size:1.6rem"></h1>
+  <p class="sub" id="as"></p>
+  <div class="kpis" id="kpis"></div>
+  <div class="grid">
+    <div class="card"><h2>Overall sentiment</h2><div class="ch"><canvas id="c1"></canvas></div></div>
+    <div class="card"><h2>Sentiment by device</h2><div class="ch"><canvas id="c2"></canvas></div></div>
+  </div>
+  <div class="card"><h2>Positive share by quarter</h2><div class="ch"><canvas id="c3"></canvas></div></div>
+  <div class="card"><h2>Sample reviews</h2><div id="revs"></div></div>
+</section>
+</main>
+<script>
+const DATA={"n_reviews":4897,"n_with_device":3292,"date_min":"2012-01-09","date_max":"2014-12-07","segments":[{"name":"Phone","n":2105},{"name":"Tablet","n":349},{"name":"Camera","n":339},{"name":"Action cam (GoPro)","n":320},{"name":"Laptop","n":179}],"aspects":{"authenticity":{"n":98,"pos":24,"neg":22,"neu":54,"seg":{"Phone":{"n":40,"positive":15,"neutral":65,"negative":20},"Tablet":{"n":3,"positive":0,"neutral":100,"negative":0},"Camera":{"n":5,"positive":40,"neutral":40,"negative":20},"Action cam (GoPro)":{"n":1,"positive":100,"neutral":0,"negative":0},"Laptop":{"n":13,"positive":31,"neutral":38,"negative":31}},"trend":[null,null,null,8,10,12,50,33,33,31,null,null],"samples":[{"s":"positive","seg":NaN,"t":"I've had absolutely no problems and I expect it to continue working for a long time *knock on wood*BOTTOM LINEThis is a quality product.","kw":"knock"},{"s":"positive","seg":NaN,"t":"Don't go cheap and fall for counterfeits.","kw":"counterfeit"},{"s":"negative","seg":NaN,"t":"Naturally, SanDisk isn't going to stand by a counterfeit.","kw":"counterfeit"},{"s":"negative","seg":NaN,"t":"Don't be fooled by a knock off, slow speed, import.","kw":"knock"},{"s":"neutral","seg":"Laptop","t":"I purchased the card in the Sandisk packaging, so I am pretty sure it is genuine.","kw":"genuine"}]},"compatibility":{"n":2066,"pos":54,"neg":17,"neu":29,"seg":{"Phone":{"n":1087,"positive":47,"neutral":33,"negative":19},"Tablet":{"n":179,"positive":60,"neutral":26,"negative":15},"Camera":{"n":163,"positive":59,"neutral":26,"negative":15},"Action cam (GoPro)":{"n":86,"positive":78,"neutral":17,"negative":5},"Laptop":{"n":160,"positive":45,"neutral":34,"negative":21}},"trend":[53,35,48,42,51,45,54,61,71,62,58,58],"samples":[{"s":"positive","seg":"Action cam (GoPro)","t":"I like the fact that it comes with an adapter","kw":"adapter"},{"s":"positive","seg":NaN,"t":"Depending on your device, it may not like that and you need to format it to FAT32.","kw":"format"},{"s":"negative","seg":NaN,"t":"Formatted the cards I reviewed from Amazon.","kw":"format"},{"s":"negative","seg":"Phone","t":"The customer support is also unhelpful, as they would only replace the card after many questions, they would not provide a refund (I did not want a replacement of a card that failed so quickly).","kw":"support"},{"s":"neutral","seg":NaN,"t":"Actually fits and holds data vs others brands which didn't work consistently.","kw":"fits"}]},"delivery":{"n":709,"pos":55,"neg":12,"neu":33,"seg":{"Phone":{"n":332,"positive":52,"neutral":35,"negative":14},"Tablet":{"n":42,"positive":62,"neutral":36,"negative":2},"Camera":{"n":53,"positive":53,"neutral":40,"negative":8},"Action cam (GoPro)":{"n":29,"positive":72,"neutral":24,"negative":3},"Laptop":{"n":31,"positive":52,"neutral":32,"negative":16}},"trend":[null,33,33,51,53,53,59,55,62,64,79,53],"samples":[{"s":"positive","seg":NaN,"t":"Product arrived on time as expected and worked exactly as advertised.","kw":"arriv"},{"s":"positive","seg":"Tablet","t":"It was a Good value for money , Product was delivered on time and in good condition.","kw":"deliver"},{"s":"negative","seg":NaN,"t":"I did not contact the seller about it since I had another to use.","kw":"seller"},{"s":"negative","seg":"Phone","t":"I received this on Friday, followed the review from another person about formatting the disk before using it, and after the format, it did it's thing!","kw":"received"},{"s":"neutral","seg":"Phone","t":"you can Not tell if the seller is selling a fake product ot not.","kw":"seller"}]},"price":{"n":1761,"pos":77,"neg":5,"neu":18,"seg":{"Phone":{"n":721,"positive":75,"neutral":19,"negative":6},"Tablet":{"n":99,"positive":83,"neutral":16,"negative":1},"Camera":{"n":128,"positive":78,"neutral":20,"negative":2},"Action cam (GoPro)":{"n":108,"positive":72,"neutral":18,"negative":10},"Laptop":{"n":67,"positive":67,"neutral":28,"negative":4}},"trend":[71,48,72,74,71,77,80,77,79,80,79,81],"samples":[{"s":"positive","seg":"Phone","t":"Got a really good deal on this humongous capacity card on Black Friday, Thanks Amazon, been waiting for the price to go down.","kw":"deal"},{"s":"positive","seg":NaN,"t":"BEST PRICE DEAL FOR ME GETTING A GOOD NAME BRAND.","kw":"price"},{"s":"negative","seg":"Phone","t":"Worked great in my galaxy s4 and died about 2 months later, what a waste of a lot of money!","kw":"money"},{"s":"negative","seg":NaN,"t":"I would avoid the cheap junk as if it fails then you've lost what's on the card most likely!","kw":"cheap"},{"s":"neutral","seg":"Camera","t":"I've not found cards much cheaper from other brands and personally like to stick with those with which I have good experience.","kw":"cheap"}]},"reliability":{"n":4792,"pos":63,"neg":15,"neu":22,"seg":{"Phone":{"n":2434,"positive":59,"neutral":23,"negative":18},"Tablet":{"n":287,"positive":77,"neutral":15,"negative":8},"Camera":{"n":322,"positive":70,"neutral":19,"negative":10},"Action cam (GoPro)":{"n":342,"positive":73,"neutral":19,"negative":8},"Laptop":{"n":201,"positive":44,"neutral":32,"negative":24}},"trend":[46,42,63,51,58,58,67,64,73,68,68,75],"samples":[{"s":"positive","seg":"Camera","t":"I make sure to always carry a spare \"normal\" SD card with my camera in case this one stops working.","kw":"working"},{"s":"positive","seg":"Phone","t":"Not much more to say; it's a good quality SD card that does the job (presently in a Galaxy S5) with no issues whatsoever.","kw":"issue"},{"s":"negative","seg":"Phone","t":"I received a new phone from T-Mobile and the same problem continues to occur.","kw":"problem"},{"s":"negative","seg":"Phone","t":"I returned it for a replacement and the replacement has worked fine in my phone with constant use.","kw":"worked"},{"s":"neutral","seg":NaN,"t":"Literally, my entire life's work can be stored on a device smaller than my thumbnail.","kw":"work"}]},"speed":{"n":3505,"pos":64,"neg":10,"neu":26,"seg":{"Phone":{"n":1653,"positive":62,"neutral":27,"negative":11},"Tablet":{"n":241,"positive":66,"neutral":28,"negative":6},"Camera":{"n":287,"positive":69,"neutral":26,"negative":5},"Action cam (GoPro)":{"n":191,"positive":63,"neutral":28,"negative":8},"Laptop":{"n":224,"positive":44,"neutral":38,"negative":19}},"trend":[61,45,49,56,61,63,66,69,69,70,63,70],"samples":[{"s":"positive","seg":"Phone","t":"No formatting required, and writes to this card are fast enough to use it for video captures.","kw":"write"},{"s":"positive","seg":"Phone","t":"When I plug the phone into the pc it is recognized and can easily transfer files.","kw":"transfer"},{"s":"negative","seg":"Action cam (GoPro)","t":"I thought write speed of class 10 card should never dip below 10 MB/s?","kw":"write"},{"s":"negative","seg":"Phone","t":"The first one I got from Amazon was damaged, they quickly replaced it.....","kw":"quick"},{"s":"neutral","seg":"Phone","t":"It's a class 10 card so you won't see any lag in pulling up files.","kw":"class 10"}]},"storage":{"n":3292,"pos":81,"neg":3,"neu":16,"seg":{"Phone":{"n":1660,"positive":79,"neutral":17,"negative":3},"Tablet":{"n":305,"positive":90,"neutral":9,"negative":1},"Camera":{"n":210,"positive":79,"neutral":18,"negative":3},"Action cam (GoPro)":{"n":151,"positive":81,"neutral":15,"negative":5},"Laptop":{"n":131,"positive":61,"neutral":32,"negative":7}},"trend":[83,50,66,77,79,82,81,81,85,85,80,84],"samples":[{"s":"positive","seg":"Phone","t":"I wife loaded all her books and music on it and still huge amount of space left.","kw":"space"},{"s":"positive","seg":"Tablet","t":"I'm glad to be able to have more memory for my tablet and am very happy that it comes with and SD card adaptor so that I can transfer pictures straight from my camera to my table.","kw":"memory"},{"s":"negative","seg":"Tablet","t":"If I tried a full format it always failed.","kw":"full"},{"s":"negative","seg":"Phone","t":"However, when I started to take photos, the camera reported that it would now be storing pictures on the card instead of the phone's internal flash memory.","kw":"memory"},{"s":"neutral","seg":"Phone","t":"I have a 4gb and an 8gb micro sd card so I finally had to upgrade since I was getting close to filling up both cards.","kw":"fill"}]},"video & photo":{"n":1517,"pos":73,"neg":6,"neu":21,"seg":{"Phone":{"n":694,"positive":70,"neutral":22,"negative":9},"Tablet":{"n":94,"positive":88,"neutral":11,"negative":1},"Camera":{"n":230,"positive":76,"neutral":20,"negative":3},"Action cam (GoPro)":{"n":198,"positive":71,"neutral":24,"negative":5},"Laptop":{"n":58,"positive":55,"neutral":41,"negative":3}},"trend":[83,64,80,58,66,73,70,77,81,74,79,72],"samples":[{"s":"positive","seg":"Phone","t":"this card is great you can save lots of pictures or files on this card the card works great in most phones","kw":"picture"},{"s":"positive","seg":"Tablet","t":"I have used it to extend the storage capacity on the tablet to 64GB for storing documents, pictures etc.","kw":"picture"},{"s":"negative","seg":"Action cam (GoPro)","t":"Never had an issue with it recording 1080p video it doesn't skip a beat.","kw":"record"},{"s":"negative","seg":NaN,"t":"after filling one of them with videos, the entire card just failed.","kw":"video"},{"s":"neutral","seg":"Action cam (GoPro)","t":"I get 4:30 hours of recording time on 1080p 60fps.","kw":"record"}]}},"quarters":["2012Q1","2012Q2","2012Q3","2012Q4","2013Q1","2013Q2","2013Q3","2013Q4","2014Q1","2014Q2","2014Q3","2014Q4"]};
+const P=DATA.segments.map(s=>s.name),A=Object.keys(DATA.aspects).sort((a,b)=>DATA.aspects[b].n-DATA.aspects[a].n);
+const COL=["#0b7a75","#3d6fd1","#e0a526","#c2528b","#7a8794"];
+const $=id=>document.getElementById(id);
+const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+let charts=[];
+function mk(id,cfg){cfg.options=Object.assign({responsive:true,maintainAspectRatio:false},cfg.options||{});charts.push(new Chart($(id),cfg))}
+function clr(){charts.forEach(c=>c.destroy());charts=[]}
+function theme(){const s=getComputedStyle(document.documentElement);Chart.defaults.color=s.getPropertyValue('--mut').trim();Chart.defaults.borderColor=s.getPropertyValue('--line').trim();return s.getPropertyValue('--card').trim()}
+const tot=DATA.segments.reduce((a,s)=>a+s.n,0);
+function home(){
+  clr();const bg=theme();$('asp').classList.add('hide');$('home').classList.remove('hide');
+  $('pcap').textContent='The file has no product ID, so reviews are grouped by the first device they mention. '+DATA.n_with_device.toLocaleString('en-US')+' of '+DATA.n_reviews.toLocaleString('en-US')+' reviews name a device; the chart shows the top 5.';
+  mk('pie',{type:'pie',data:{labels:P,datasets:[{data:DATA.segments.map(s=>s.n),backgroundColor:COL,borderColor:bg,borderWidth:2}]},
+    options:{plugins:{legend:{position:'right'},tooltip:{callbacks:{label:c=>' '+c.label+': '+c.parsed.toLocaleString('en-US')+' reviews ('+Math.round(100*c.parsed/tot)+'%)'}}}}})}
+function show(a){
+  const d=DATA.aspects[a];clr();const bg=theme();
+  $('home').classList.add('hide');$('asp').classList.remove('hide');window.scrollTo(0,0);
+  $('at').textContent=a[0].toUpperCase()+a.slice(1);
+  $('as').textContent='Sentiment about this aspect across all reviews, with a split by device.';
+  const ok=P.filter(p=>d.seg[p].n>=20).sort((x,y)=>d.seg[y].positive-d.seg[x].positive),best=ok[0],worst=ok[ok.length-1];
+  $('kpis').innerHTML=[[d.n.toLocaleString('en-US'),'mentions'],[d.pos+'%','positive'],[d.neg+'%','negative'],[best||'n/a','most positive device'],[worst||'n/a','least positive device']]
+    .map(k=>'<div class="kpi"><b>'+k[0]+'</b><span>'+k[1]+'</span></div>').join('');
+  mk('c1',{type:'doughnut',data:{labels:['Positive','Neutral','Negative'],datasets:[{data:[d.pos,d.neu,d.neg],backgroundColor:['#2e9e6b','#9aa5b1','#d4504c'],borderColor:bg,borderWidth:2}]},options:{plugins:{legend:{position:'right'}}}});
+  const ds=(l,k,c)=>({label:l,data:P.map(p=>d.seg[p][k]||0),backgroundColor:c});
+  mk('c2',{type:'bar',data:{labels:P.map(p=>p+' ('+d.seg[p].n+')'),datasets:[ds('Positive','positive','#2e9e6b'),ds('Neutral','neutral','#9aa5b1'),ds('Negative','negative','#d4504c')]},
+    options:{indexAxis:'y',scales:{x:{stacked:true,max:100,ticks:{callback:v=>v+'%'}},y:{stacked:true}},plugins:{legend:{position:'bottom'}}}});
+  mk('c3',{type:'line',data:{labels:DATA.quarters,datasets:[{label:'% positive',data:d.trend,borderColor:'#0b7a75',backgroundColor:'#0b7a7522',fill:true,tension:.3,spanGaps:true}]},
+    options:{scales:{y:{min:0,max:100,ticks:{callback:v=>v+'%'}}},plugins:{legend:{display:false}}}});
+  const C={positive:'#2e9e6b',negative:'#d4504c',neutral:'#9aa5b1'};
+  $('revs').innerHTML=d.samples.map(s=>{
+    const re=new RegExp('('+esc(s.kw).replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','i');
+    return '<div class="rev"><span class="tag" style="background:'+C[s.s]+'">'+s.s[0].toUpperCase()+s.s.slice(1)+'</span><small>'+(s.seg||'Device not named')+'</small><br>'+esc(s.t).replace(re,'<mark>$1</mark>')+'</div>'}).join('')}
+function find(){
+  const v=$('q').value.trim().toLowerCase();if(!v){$('msg').textContent='Type an aspect to search.';return}
+  const m=A.find(a=>a===v)||A.find(a=>a.includes(v)||v.includes(a));
+  if(m){$('msg').textContent='';show(m)}else $('msg').textContent='No data for “'+$('q').value.trim()+'”. Pick one of the aspects below.'}
+$('al').innerHTML=A.map(a=>'<option value="'+a+'">').join('');
+$('chips').innerHTML=A.map(a=>'<button class="ghost" data-a="'+a+'">'+a+'</button>').join('');
+$('chips').onclick=e=>{const a=e.target.dataset.a;if(a)show(a)};
+$('go').onclick=find;$('q').onkeydown=e=>{if(e.key==='Enter')find()};
+$('back').onclick=()=>{$('q').value='';home()};
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{$('asp').classList.contains('hide')?home():show($('at').textContent.toLowerCase())});
+home();
+</script>
+</body>
+</html>
